@@ -18,9 +18,9 @@ ALLOWLIST = [
     "aljazeera.com", "dw.com", "rt.com", "theverge.com", "wired.com", "arstechnica.com"
 ]
 
-INPUT_PATH = "/root/secure_traffic_data/flows_features.csv"
-OUTPUT_LABELED = "/root/secure_traffic_data/flows_labeled.csv"
-OUTPUT_SUSPICIOUS = "/root/secure_traffic_data/suspicious_flows.csv"
+INPUT_PATH = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
+OUTPUT_LABELED = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_labeled.csv"
+OUTPUT_SUSPICIOUS = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/suspicious_flows.csv"
 
 print("📥 Loading dataset...")
 df = pd.read_csv(INPUT_PATH)

@@ -14,7 +14,7 @@ def safe_json(obj):
 
 flows = []
 
-with open("/root/secure_traffic_data/flows.mitm", "rb") as f:
+with open("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.mitm", "rb") as f:
     reader = FlowReader(f)
     for flow in reader.stream():
         if isinstance(flow, HTTPFlow):
@@ -47,11 +47,11 @@ with open("/root/secure_traffic_data/flows.mitm", "rb") as f:
                 "sni": safe_json(getattr(flow.server_conn, "sni", None)),
             })
 
-with open("/root/secure_traffic_data/flows.json", "w") as f:
+with open("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.json", "w") as f:
     json.dump(flows, f, indent=2, default=safe_json)
 
 df = pd.DataFrame(flows)
-df.to_csv("/root/secure_traffic_data/flows.csv", index=False)
+df.to_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv", index=False)
 print(f"✅ Extracted {len(df)} HTTP flows and saved to CSV/JSON.")
 
 # Preview sample rows

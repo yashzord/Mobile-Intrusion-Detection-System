@@ -4,7 +4,7 @@ import numpy as np
 from urllib.parse import urlparse
 
 # === Load the raw flows ===
-df = pd.read_csv("/root/secure_traffic_data/flows.csv")
+df = pd.read_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv")
 
 # === Time features ===
 df['timestamp_start'] = pd.to_datetime(df['timestamp_start'], unit='s', errors='coerce')
@@ -60,6 +60,6 @@ drop_cols = [
 df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
 
 # === Save final features ===
-df.to_csv("/root/secure_traffic_data/flows_features.csv", index=False)
+df.to_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv", index=False)
 print(f"✅ Feature engineering complete. Output saved to flows_features.csv")
 print(f"🔢 Shape: {df.shape[0]} rows × {df.shape[1]} columns")

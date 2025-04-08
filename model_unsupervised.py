@@ -9,7 +9,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.preprocessing import StandardScaler
 
 # 1. Data Loading
-data_path = "/root/secure_traffic_data/flows_features.csv"
+data_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
 data = pd.read_csv(data_path)
 
 # Drop columns not needed for unsupervised detection.
@@ -35,7 +35,7 @@ X_scaled = scaler.fit_transform(data)
 X = pd.DataFrame(X_scaled, columns=data.columns)
 
 # 3. Load Labels for Evaluation (heuristic labels)
-labels_path = "/root/secure_traffic_data/flows_labeled.csv"
+labels_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_labeled.csv"
 labels_df = pd.read_csv(labels_path)
 y_true = labels_df["label"]
 
@@ -57,7 +57,7 @@ plt.ylabel("True Positive Rate")
 plt.title("Isolation Forest ROC Curve")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_if.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_if.png")
 plt.show()
 
 # 5. One-Class SVM
@@ -78,7 +78,7 @@ plt.ylabel("True Positive Rate")
 plt.title("One-Class SVM ROC Curve")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_ocsvm.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_ocsvm.png")
 plt.show()
 
 # 6. Local Outlier Factor (LOF)
@@ -100,7 +100,7 @@ plt.ylabel("True Positive Rate")
 plt.title("Local Outlier Factor ROC Curve")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_lof.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/unsupervised_roc_curve_lof.png")
 plt.show()
 
 # 7. Optional: Compare Anomaly Score Distributions for Isolation Forest
@@ -112,5 +112,5 @@ plt.ylabel("Frequency")
 plt.title("Isolation Forest Anomaly Score Distribution")
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/anomaly_score_distribution_if.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/anomaly_score_distribution_if.png")
 plt.show()

@@ -2,8 +2,8 @@
 import pandas as pd
 
 # === Load both datasets ===
-raw_path = "/root/secure_traffic_data/flows.csv"
-feat_path = "/root/secure_traffic_data/flows_features.csv"
+raw_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv"
+feat_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
 
 df_raw = pd.read_csv(raw_path)
 df_feat = pd.read_csv(feat_path)

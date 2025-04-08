@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKF
 from sklearn.preprocessing import StandardScaler
 
 # 1. Data Loading
-data_path = "/root/secure_traffic_data/flows_labeled.csv"
+data_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_labeled.csv"
 data = pd.read_csv(data_path)
 
 # 2. Define Features and Target (drop leakage-prone columns)
@@ -91,7 +91,7 @@ for i in range(cm.shape[0]):
                  ha="center", va="center",
                  color="white" if cm[i, j] > thresh else "black")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/confusion_matrix_threshold.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/confusion_matrix_threshold.png")
 plt.show()
 
 # 8. Visualization: ROC Curve
@@ -104,7 +104,7 @@ plt.ylabel("True Positive Rate")
 plt.title("Receiver Operating Characteristic (Threshold = {:.2f})".format(decision_threshold))
 plt.legend(loc="best")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/roc_curve_threshold.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/roc_curve_threshold.png")
 plt.show()
 
 # 9. Visualization: Feature Importances
@@ -117,5 +117,5 @@ plt.bar(range(len(features)), importances[indices])
 plt.xticks(range(len(features)), features[indices], rotation=90)
 plt.ylabel("Importance")
 plt.tight_layout()
-plt.savefig("/root/Mobile-Intrusion-Detection-System/images/feature_importances_threshold.png")
+plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/feature_importances_threshold.png")
 plt.show()

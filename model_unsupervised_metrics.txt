@@ -1,0 +1,8 @@
+Run: Run1
+Isolation Forest ROC AUC Score: 0.661
+One-Class SVM ROC AUC Score: 0.552
+LOF ROC AUC Score: 0.603
+Isolation Forest ROC Curve: unsupervised_roc_curve_if_Run1.png
+One-Class SVM ROC Curve: unsupervised_roc_curve_ocsvm_Run1.png
+LOF ROC Curve: unsupervised_roc_curve_lof_Run1.png
+

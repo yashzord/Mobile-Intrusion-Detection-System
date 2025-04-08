@@ -60,6 +60,7 @@ drop_cols = [
 df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
 
 # === Save final features ===
-df.to_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv", index=False)
-print(f"✅ Feature engineering complete. Output saved to flows_features.csv")
+output_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
+df.to_csv(output_path, index=False)
+print(f"✅ Feature engineering complete. Output saved to {output_path}")
 print(f"🔢 Shape: {df.shape[0]} rows × {df.shape[1]} columns")

@@ -3,6 +3,8 @@ from mitmproxy.io import FlowReader
 from mitmproxy.http import HTTPFlow
 import json
 import pandas as pd
+import sqlite3
+import os
 
 def safe_headers(headers):
     return {str(k): str(v) for k, v in headers.items()}
@@ -14,11 +16,14 @@ def safe_json(obj):
 
 flows = []
 
-with open("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.mitm", "rb") as f:
+# Path to your flows.mitm file (adjust if necessary)
+flows_mitm_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.mitm"
+
+with open(flows_mitm_path, "rb") as f:
     reader = FlowReader(f)
     for flow in reader.stream():
         if isinstance(flow, HTTPFlow):
-            # Skip flows that don't have both timestamps
+            # Skip flows without both start and end timestamps
             if flow.request.timestamp_start is None or flow.request.timestamp_end is None:
                 continue
 
@@ -47,13 +52,29 @@ with open("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flow
                 "sni": safe_json(getattr(flow.server_conn, "sni", None)),
             })
 
-with open("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.json", "w") as f:
-    json.dump(flows, f, indent=2, default=safe_json)
-
+# Create DataFrame from captured flows
 df = pd.DataFrame(flows)
-df.to_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv", index=False)
-print(f"✅ Extracted {len(df)} HTTP flows and saved to CSV/JSON.")
 
-# Preview sample rows
-print("\n🔎 Sample rows:")
-print(df[["url", "method", "status_code", "content_type", "user_agent", "tls_cipher", "sni"]].sample(5))
+# Convert dictionary-type columns to JSON strings for database storage
+if "request_headers" in df.columns:
+    df["request_headers"] = df["request_headers"].apply(lambda x: json.dumps(x))
+if "response_headers" in df.columns:
+    df["response_headers"] = df["response_headers"].apply(lambda x: json.dumps(x))
+
+# Save to CSV (optional)
+csv_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv"
+df.to_csv(csv_path, index=False)
+print(f"✅ Extracted {len(df)} HTTP flows and saved to CSV at {csv_path}.")
+
+# Save to JSON (optional)
+json_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.json"
+with open(json_path, "w") as f:
+    json.dump(flows, f, indent=2, default=safe_json)
+print(f"✅ Saved flows data to JSON at {json_path}.")
+
+# Insert data into SQLite database
+DB_PATH = "/home/kali/Mobile-Intrusion-Detection-System/traffic_data.db"
+conn = sqlite3.connect(DB_PATH)
+df.to_sql("flows", conn, if_exists="append", index=False)
+conn.close()
+print("✅ Flows data inserted into SQLite database 'traffic_data.db'.")

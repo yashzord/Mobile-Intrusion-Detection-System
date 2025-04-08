@@ -1,121 +1,180 @@
 #!/usr/bin/env python3
+import os
+import sqlite3
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.linear_model import SGDClassifier
+from sklearn.metrics import classification_report, roc_auc_score, roc_curve, confusion_matrix
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import joblib
+import matplotlib.pyplot as plt
+from datetime import datetime
 
-# 1. Data Loading
-data_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_labeled.csv"
-data = pd.read_csv(data_path)
+# Define paths
+DB_PATH = "/home/kali/Mobile-Intrusion-Detection-System/traffic_data.db"
+CHECKPOINT_PATH = "/home/kali/Mobile-Intrusion-Detection-System/model_checkpoint.pkl"
+LAST_TRAINED_PATH = "/home/kali/Mobile-Intrusion-Detection-System/last_trained.txt"
+METRICS_FILE = "/home/kali/Mobile-Intrusion-Detection-System/model_supervised_metrics.txt"
+IMAGES_DIR = "/home/kali/Mobile-Intrusion-Detection-System/images"
+RUN_COUNTER_FILE = "/home/kali/Mobile-Intrusion-Detection-System/run_supervised_counter.txt"
 
-# 2. Define Features and Target (drop leakage-prone columns)
-cols_to_drop = [
-    "label", "url", "domain", "domain_root", "reasons", "timestamp_start",
-    "suspicion_level", "content_type", "user_agent", "tls_established",
-    "tls_cipher", "alpn", "sni", "http_version", "request_headers",
-    "response_headers", "client_ip", "client_port", "server_ip",
-    "server_port", "score"
-]
-y = data["label"]
-X = data.drop(columns=[col for col in cols_to_drop if col in data.columns])
+# Function to load labeled data from the database, optionally filtering by last trained timestamp.
+def load_labeled_data(min_timestamp=None):
+    conn = sqlite3.connect(DB_PATH)
+    if min_timestamp is None:
+        query = "SELECT * FROM labeled"
+    else:
+        query = f"SELECT * FROM labeled WHERE timestamp_start > '{min_timestamp}'"
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
-# 3. Data Conversion & Scaling
-for col in X.columns:
-    if X[col].dtype == bool:
-        X[col] = X[col].astype(int)
-non_numeric_cols = []
-for col in X.columns:
-    try:
-        X[col] = pd.to_numeric(X[col])
-    except Exception as e:
-        non_numeric_cols.append(col)
-if non_numeric_cols:
-    X.drop(columns=non_numeric_cols, inplace=True)
-X = X.fillna(0)
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-X = pd.DataFrame(X_scaled, columns=X.columns)
+# Preprocessing function (simplified)
+def preprocess_data(df):
+    # Columns that should not be used for training.
+    drop_cols = [
+        "label", "url", "domain", "domain_root", "reasons", "timestamp_start",
+        "suspicion_level", "content_type", "user_agent", "tls_established",
+        "tls_cipher", "alpn", "sni", "http_version", "request_headers",
+        "response_headers", "client_ip", "client_port", "server_ip",
+        "server_port", "score"
+    ]
+    if "label" not in df.columns:
+        raise Exception("Dataframe does not contain label column")
+    y = df["label"]
+    X = df.drop(columns=[col for col in drop_cols if col in df.columns])
+    
+    # Convert boolean columns to integers.
+    for col in X.columns:
+        if X[col].dtype == bool:
+            X[col] = X[col].astype(int)
+    non_numeric_cols = []
+    for col in X.columns:
+        try:
+            X[col] = pd.to_numeric(X[col])
+        except Exception:
+            non_numeric_cols.append(col)
+    if non_numeric_cols:
+        X.drop(columns=non_numeric_cols, inplace=True)
+    X = X.fillna(0)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X = pd.DataFrame(X_scaled, columns=X.columns)
+    return X, y, scaler
 
-print("Final feature columns used for modeling:")
-print(X.columns.tolist())
+# Retrieve last trained timestamp if it exists.
+last_trained_timestamp = None
+if os.path.exists(LAST_TRAINED_PATH):
+    with open(LAST_TRAINED_PATH, "r") as f:
+        try:
+            last_trained_timestamp = f.read().strip()  # Expect string datetime
+        except Exception:
+            last_trained_timestamp = None
 
-# 4. Train-Test Split and CV Setup
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=42, stratify=y
-)
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+# Load new labeled data from the database.
+df_labeled = load_labeled_data(min_timestamp=last_trained_timestamp)
 
-# 5. Hyperparameter Tuning with GridSearchCV
-param_grid = {
-    'n_estimators': [100, 200],
-    'max_depth': [None, 10, 20],
-    'min_samples_split': [2, 5],
-    'class_weight': ['balanced']
-}
-clf = RandomForestClassifier(random_state=42)
-grid_search = GridSearchCV(clf, param_grid, cv=cv, scoring='roc_auc', n_jobs=-1)
-grid_search.fit(X_train, y_train)
-best_clf = grid_search.best_estimator_
-print("Best Parameters:", grid_search.best_params_)
+if df_labeled.empty:
+    print("No new labeled data to train on.")
+    exit(0)
+else:
+    print(f"Loaded {df_labeled.shape[0]} new labeled records for training.")
 
-# 6. Predictions and Threshold Tuning
-y_proba = best_clf.predict_proba(X_test)[:, 1]
+# Preprocess new data.
+X_new, y_new, scaler = preprocess_data(df_labeled)
 
-# Set your desired decision threshold (e.g., 0.4 to favor recall)
-decision_threshold = 0.4
-y_pred = (y_proba >= decision_threshold).astype(int)
+# Initialize or load the incremental model.
+if os.path.exists(CHECKPOINT_PATH):
+    model = joblib.load(CHECKPOINT_PATH)
+    print("Loaded model checkpoint.")
+else:
+    model = SGDClassifier(loss="log_loss", max_iter=1000, tol=1e-3)
+    # Perform an initial partial_fit with the defined classes.
+    model.partial_fit(X_new, y_new, classes=np.array([0, 1]))
+    print("Initialized new model and performed initial training.")
 
-print("\n--- Classification Report (Threshold = {:.2f}) ---".format(decision_threshold))
-print(classification_report(y_test, y_pred))
-roc_auc = roc_auc_score(y_test, y_proba)
-print(f"ROC AUC Score: {roc_auc:.3f}")
+# Update the model incrementally with new data.
+model.partial_fit(X_new, y_new)
+print("Updated model with new data.")
 
-# 7. Visualization: Confusion Matrix
+# Evaluate on a holdout split from the new data.
+X_train, X_test, y_train, y_test = train_test_split(X_new, y_new, test_size=0.3, random_state=42)
+y_pred = model.predict(X_test)
+report = classification_report(y_test, y_pred)
+roc_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
+print("Classification Report on new data:")
+print(report)
+print(f"ROC AUC Score on new data: {roc_auc:.3f}")
+
+# -- RUN COUNTER --
+# Check for existing run counter and increment it.
+if os.path.exists(RUN_COUNTER_FILE):
+    with open(RUN_COUNTER_FILE, "r") as f:
+        try:
+            run_number = int(f.read().strip()) + 1
+        except:
+            run_number = 1
+else:
+    run_number = 1
+with open(RUN_COUNTER_FILE, "w") as f:
+    f.write(str(run_number))
+run_label = f"Run{run_number}"
+
+# Create and save confusion matrix plot.
 cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(6, 5))
+plt.figure(figsize=(6,5))
 plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-plt.title("Confusion Matrix (Threshold = {:.2f})".format(decision_threshold))
+plt.title(f"Confusion Matrix - {run_label}")
 plt.colorbar()
 tick_marks = np.arange(2)
 plt.xticks(tick_marks, ["Benign", "Suspicious"])
 plt.yticks(tick_marks, ["Benign", "Suspicious"])
 plt.xlabel("Predicted Label")
 plt.ylabel("True Label")
-thresh = cm.max() / 2.
 for i in range(cm.shape[0]):
     for j in range(cm.shape[1]):
         plt.text(j, i, format(cm[i, j], 'd'),
                  ha="center", va="center",
-                 color="white" if cm[i, j] > thresh else "black")
+                 color="white" if cm[i, j] > cm.max()/2. else "black")
+conf_mat_filename = f"confusion_matrix_{run_label}.png"
 plt.tight_layout()
-plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/confusion_matrix_threshold.png")
-plt.show()
+plt.savefig(os.path.join(IMAGES_DIR, conf_mat_filename))
+plt.close()
 
-# 8. Visualization: ROC Curve
-fpr, tpr, thresholds = roc_curve(y_test, y_proba)
-plt.figure(figsize=(6, 5))
+# Create and save ROC curve plot.
+fpr, tpr, _ = roc_curve(y_test, model.predict_proba(X_test)[:, 1])
+plt.figure(figsize=(6,5))
 plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {roc_auc:.2f})")
-plt.plot([0, 1], [0, 1], "k--", label="Random Chance")
+plt.plot([0,1], [0,1], "k--", label="Random Chance")
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
-plt.title("Receiver Operating Characteristic (Threshold = {:.2f})".format(decision_threshold))
+plt.title(f"ROC Curve - {run_label}")
 plt.legend(loc="best")
+roc_curve_filename = f"roc_curve_{run_label}.png"
 plt.tight_layout()
-plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/roc_curve_threshold.png")
-plt.show()
+plt.savefig(os.path.join(IMAGES_DIR, roc_curve_filename))
+plt.close()
 
-# 9. Visualization: Feature Importances
-importances = best_clf.feature_importances_
-indices = np.argsort(importances)[::-1]
-features = X.columns
-plt.figure(figsize=(8, 6))
-plt.title("Feature Importances")
-plt.bar(range(len(features)), importances[indices])
-plt.xticks(range(len(features)), features[indices], rotation=90)
-plt.ylabel("Importance")
-plt.tight_layout()
-plt.savefig("/home/kali/Mobile-Intrusion-Detection-System/images/feature_importances_threshold.png")
-plt.show()
+# Append performance metrics to the supervised metrics log file.
+metrics_text = f"Run: {run_label}\n"
+metrics_text += f"Loaded new labeled records: {df_labeled.shape[0]}\n"
+metrics_text += f"ROC AUC Score: {roc_auc:.3f}\n"
+metrics_text += "Classification Report:\n" + report + "\n"
+metrics_text += f"Confusion Matrix Image: {conf_mat_filename}\n"
+metrics_text += f"ROC Curve Image: {roc_curve_filename}\n\n"
+
+with open(METRICS_FILE, "a") as f:
+    f.write(metrics_text)
+
+print("Performance metrics appended to", METRICS_FILE)
+
+# Save the updated model checkpoint.
+joblib.dump(model, CHECKPOINT_PATH)
+print(f"Model checkpoint saved to {CHECKPOINT_PATH}.")
+
+# Update the last trained timestamp using the maximum timestamp_start in the new labeled data.
+new_last_timestamp = df_labeled["timestamp_start"].max()
+with open(LAST_TRAINED_PATH, "w") as f:
+    f.write(str(new_last_timestamp))
+print(f"Updated last training timestamp to {new_last_timestamp}.")

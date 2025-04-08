@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
+import sqlite3
+import os
 
 # Extended allow list with many mainstream domains
 ALLOWLIST = [
@@ -18,6 +20,7 @@ ALLOWLIST = [
     "aljazeera.com", "dw.com", "rt.com", "theverge.com", "wired.com", "arstechnica.com"
 ]
 
+# Input path for engineered features (assumes feature_engineering.py has already run)
 INPUT_PATH = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
 OUTPUT_LABELED = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_labeled.csv"
 OUTPUT_SUSPICIOUS = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/suspicious_flows.csv"
@@ -43,7 +46,7 @@ def add_reason(idx, reason, score):
 for i, row in df.iterrows():
     domain = row.get("domain", "")
     
-    # Skip scoring if the domain is in the allowlist (or a subdomain of an allowed domain)
+    # Skip scoring if the domain is in the allowlist (or a subdomain of an allowed domain).
     if any(allowed in domain for allowed in ALLOWLIST):
         continue
 
@@ -67,17 +70,11 @@ for i, row in df.iterrows():
     if freq < 0.2 * max_freq:
         add_reason(i, "Rare domain", 1)
 
-# Label as suspicious if score >= 2.
+# Label flows where aggregate score >= 2.
 df["label"] = (df["score"] >= 2).astype(int)
+df["suspicion_level"] = pd.cut(df["score"], bins=[-1, 1, 3, np.inf], labels=["Low", "Medium", "High"])
 
-# Assign suspicion levels based on score.
-df["suspicion_level"] = pd.cut(
-    df["score"],
-    bins=[-1, 1, 3, np.inf],
-    labels=["Low", "Medium", "High"]
-)
-
-# Save outputs.
+# Save outputs to CSV.
 df.to_csv(OUTPUT_LABELED, index=False)
 suspicious = df[df["label"] == 1].sort_values(by="score", ascending=False).head(20)
 suspicious.to_csv(OUTPUT_SUSPICIOUS, index=False)
@@ -86,3 +83,21 @@ print(f"✅ Labeled dataset saved to: {OUTPUT_LABELED}")
 print("📊 Label distribution:")
 print(df["label"].value_counts())
 print(f"🧪 Top 20 suspicious flows saved to: {OUTPUT_SUSPICIOUS}")
+
+# -------------------------------
+# Insert the labeled data into the SQLite database.
+DB_PATH = "/home/kali/Mobile-Intrusion-Detection-System/traffic_data.db"
+conn = sqlite3.connect(DB_PATH)
+
+# Check if the "labeled" table exists.
+table_exists = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table' AND name='labeled';", conn)
+if table_exists.empty:
+    # Table does not exist—create a new one.
+    df.to_sql("labeled", conn, if_exists="replace", index=False)
+    print("✅ Created new 'labeled' table in database.")
+else:
+    # Table exists—append new records.
+    df.to_sql("labeled", conn, if_exists="append", index=False)
+    print("✅ Appended new labeled records to 'labeled' table in database.")
+
+conn.close()

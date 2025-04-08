@@ -1,0 +1,16 @@
+Run: Run1
+Loaded new labeled records: 21993
+ROC AUC Score: 0.777
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       0.92      0.97      0.94      5857
+           1       0.60      0.29      0.39       741
+
+    accuracy                           0.90      6598
+   macro avg       0.76      0.63      0.67      6598
+weighted avg       0.88      0.90      0.88      6598
+
+Confusion Matrix Image: confusion_matrix_Run1.png
+ROC Curve Image: roc_curve_Run1.png
+

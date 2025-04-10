@@ -1,2 +1,5 @@
 secure_traffic_data/
 venv-tf/
+results/run_log.json
+results/flows_with_anomalies.csv
+results/suspicious_flows.csv

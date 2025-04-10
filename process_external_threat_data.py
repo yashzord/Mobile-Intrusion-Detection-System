@@ -19,7 +19,6 @@ if not os.path.exists(input_csv):
     exit(1)
 
 df = pd.read_csv(input_csv)
-# Choose 'url' column; if not present, fallback to 'URL'
 url_col = "url" if "url" in df.columns else "URL"
 
 def extract_domain(url):

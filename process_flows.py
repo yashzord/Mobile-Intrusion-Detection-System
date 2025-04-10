@@ -3,10 +3,12 @@
 process_flows.py
 
 Extracts HTTP flows captured by mitmproxy from the file flows.mitm (located in secure_traffic_data/)
-and saves the processed flows as CSV and JSON files for further analysis.
+and saves the processed flows as CSV and JSON files. Optionally, an output filename can be provided.
+Usage: python3 process_flows.py [output_csv]
 """
 
 import os
+import sys
 import json
 import pandas as pd
 from mitmproxy.io import FlowReader
@@ -20,10 +22,17 @@ def safe_json(obj):
         return obj.decode('utf-8', errors='replace')
     return str(obj)
 
-flows = []
 base_dir = os.path.dirname(__file__)
 flows_mitm_path = os.path.join(base_dir, "secure_traffic_data", "flows.mitm")
 
+# Determine output CSV filename
+if len(sys.argv) > 1:
+    csv_filename = sys.argv[1]
+    csv_path = os.path.join(base_dir, "secure_traffic_data", csv_filename)
+else:
+    csv_path = os.path.join(base_dir, "secure_traffic_data", "flows.csv")
+
+flows = []
 with open(flows_mitm_path, "rb") as f:
     reader = FlowReader(f)
     for flow in reader.stream():
@@ -55,12 +64,9 @@ with open(flows_mitm_path, "rb") as f:
                 "sni": safe_json(getattr(flow.server_conn, "sni", None)),
             })
 
-# Save as CSV
-csv_path = os.path.join(base_dir, "secure_traffic_data", "flows.csv")
 pd.DataFrame(flows).to_csv(csv_path, index=False)
 print(f"Extracted {len(flows)} HTTP flows and saved CSV at {csv_path}")
 
-# Save as JSON
 json_path = os.path.join(base_dir, "secure_traffic_data", "flows.json")
 with open(json_path, "w") as f:
     json.dump(flows, f, indent=2, default=safe_json)

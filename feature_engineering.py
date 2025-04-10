@@ -1,66 +1,105 @@
 #!/usr/bin/env python3
+"""
+feature_engineering.py
+
+Generate an enriched feature set from raw flows (flows.csv) by combining:
+  - Standard temporal and numeric features.
+  - Basic URL parsing (domain, path depth, query length, HTTPS flag).
+  - Textual features from URLs using TF‑IDF n-gram analysis.
+  - Integration of external threat intelligence (external_threats.csv).
+The output is saved as flows_features.csv in the secure_traffic_data folder.
+"""
+
+import os
 import pandas as pd
 import numpy as np
 from urllib.parse import urlparse
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
 
-# === Load the raw flows ===
-df = pd.read_csv("/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows.csv")
+# Define paths
+base_dir = os.path.dirname(__file__)
+raw_csv = os.path.join(base_dir, "secure_traffic_data", "flows.csv")
+output_csv = os.path.join(base_dir, "secure_traffic_data", "flows_features.csv")
+external_intel_csv = os.path.join(base_dir, "external_data", "external_threats.csv")
 
-# === Time features ===
+# Load raw flows data
+df = pd.read_csv(raw_csv)
+
+# --- Standard Temporal Features ---
 df['timestamp_start'] = pd.to_datetime(df['timestamp_start'], unit='s', errors='coerce')
 df['hour'] = df['timestamp_start'].dt.hour
 df['day_of_week'] = df['timestamp_start'].dt.dayofweek
+df = df.sort_values("timestamp_start")
+df['time_gap'] = df['timestamp_start'].diff().dt.total_seconds().fillna(0)
 
-# === URL features ===
-def parse_url(url):
+# --- Basic URL Feature Extraction ---
+def parse_url_basic(url):
     try:
         parsed = urlparse(str(url))
         return pd.Series({
             "domain": parsed.netloc,
             "path_depth": len([p for p in parsed.path.strip("/").split("/") if p]),
             "query_length": len(parsed.query),
-            "is_https": parsed.scheme.lower() == "https"
+            "is_https": 1 if parsed.scheme.lower() == "https" else 0
         })
-    except:
+    except Exception:
         return pd.Series({
             "domain": "",
             "path_depth": 0,
             "query_length": 0,
-            "is_https": False
+            "is_https": 0
         })
 
-df = pd.concat([df, df['url'].apply(parse_url)], axis=1)
+url_basic = df['url'].apply(parse_url_basic)
+df = pd.concat([df, url_basic], axis=1)
 
-# === HTTP Method One-Hot ===
+# --- TF-IDF Textual Analysis on URL ---
+tfidf = TfidfVectorizer(ngram_range=(2, 4), max_features=50)
+tfidf_features = tfidf.fit_transform(df['url'].fillna("")).toarray()
+tfidf_feature_names = [f"tfidf_{i}" for i in range(tfidf_features.shape[1])]
+df_tfidf = pd.DataFrame(tfidf_features, columns=tfidf_feature_names, index=df.index)
+df = pd.concat([df, df_tfidf], axis=1)
+
+# --- External Threat Intelligence Integration ---
+if os.path.exists(external_intel_csv):
+    df_intel = pd.read_csv(external_intel_csv)
+    df = df.merge(df_intel[['domain', 'threat_score']], on="domain", how="left")
+    df["threat_score"] = df["threat_score"].fillna(0)
+else:
+    print("⚠️ External threat intelligence file not found. Skipping external intel integration.")
+    df["threat_score"] = 0
+
+# --- One-hot Encode HTTP Methods ---
 df = pd.get_dummies(df, columns=["method"], prefix="method")
 
-# === Status Category ===
-df["status_category"] = df["status_code"].fillna(0).apply(lambda x: int(x / 100))
-
-# === Log-scaled Sizes ===
+# --- Log-scale Request and Response Sizes ---
 df["log_request_size"] = np.log1p(df["request_content_length"].astype(float))
 df["log_response_size"] = np.log1p(df["response_content_length"].astype(float))
 
-# === TLS indicators ===
-df["tls_failed"] = df["tls_established"] == False
-df["tls_missing"] = df["tls_established"].isna()
+# --- Nonstandard Port Flag ---
+if "server_port" in df.columns:
+    df["nonstandard_port"] = df["server_port"].apply(lambda x: 0 if x in [80, 443] else 1)
 
-# === Nonstandard Port Flag ===
-df["nonstandard_port"] = ~df["server_port"].isin([80, 443])
-
-# === Drop unused or redundant columns ===
+# --- Drop Unnecessary Columns ---
 drop_cols = [
-    "request_headers", "response_headers",
-    "timestamp_end", "http_version",
-    "request_content_length", "response_content_length",
-    "client_ip", "client_port", "server_ip", "server_port",
-    "tls_cipher", "alpn", "sni", "user_agent", "content_encoding"
+    "request_headers", "response_headers", "http_version", "user_agent", "content_encoding",
+    "tls_cipher", "alpn", "sni", "client_ip", "client_port", "server_ip", "server_port", "url"
 ]
-
 df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
 
-# === Save final features ===
-output_path = "/home/kali/Mobile-Intrusion-Detection-System/secure_traffic_data/flows_features.csv"
-df.to_csv(output_path, index=False)
-print(f"✅ Feature engineering complete. Output saved to {output_path}")
-print(f"🔢 Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+# --- Standardize Numeric Features ---
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+scaler = StandardScaler()
+df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+
+# Save the scaler for inference.
+import joblib
+scaler_path = os.path.join(base_dir, "results", "scaler.joblib")
+os.makedirs(os.path.join(base_dir, "results"), exist_ok=True)
+joblib.dump(scaler, scaler_path)
+
+# Save the engineered features.
+df.to_csv(output_csv, index=False)
+print(f"✅ Advanced feature engineering complete. Output saved to {output_csv}")
+print(f"🔢 Final feature shape: {df.shape[0]} rows x {df.shape[1]} columns")

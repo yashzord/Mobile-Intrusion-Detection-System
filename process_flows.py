@@ -2,8 +2,8 @@
 """
 process_flows.py
 
-Extract flows from flows.mitm (captured by mitmproxy) and store them as CSV and JSON.
-This is the starting point for processing your mobile traffic data.
+Extracts HTTP flows captured by mitmproxy from the file flows.mitm (located in secure_traffic_data/)
+and saves the processed flows as CSV and JSON files for further analysis.
 """
 
 import os
@@ -55,11 +55,13 @@ with open(flows_mitm_path, "rb") as f:
                 "sni": safe_json(getattr(flow.server_conn, "sni", None)),
             })
 
+# Save as CSV
 csv_path = os.path.join(base_dir, "secure_traffic_data", "flows.csv")
 pd.DataFrame(flows).to_csv(csv_path, index=False)
-print(f"✅ Extracted {len(flows)} HTTP flows and saved to CSV at {csv_path}")
+print(f"Extracted {len(flows)} HTTP flows and saved CSV at {csv_path}")
 
+# Save as JSON
 json_path = os.path.join(base_dir, "secure_traffic_data", "flows.json")
 with open(json_path, "w") as f:
     json.dump(flows, f, indent=2, default=safe_json)
-print(f"✅ Saved flows data to JSON at {json_path}")
+print(f"Saved flows data to JSON at {json_path}")

@@ -2,9 +2,9 @@
 """
 process_external_threat_data.py
 
-Processes the Kaggle malicious URLs dataset (malicious_phish.csv)
-by extracting domains from URLs and assigning a threat score (1 for malicious).
-Output is saved as external_threats.csv in the external_data folder.
+Processes the malicious phishing dataset (malicious_phish.csv) by extracting the domain from each URL 
+and assigning a threat score of 1 to every malicious entry.
+The output is saved as external_threats.csv in the external_data folder.
 """
 
 import os
@@ -15,15 +15,11 @@ base_dir = os.path.dirname(__file__)
 input_csv = os.path.join(base_dir, "external_data", "malicious_phish.csv")
 
 if not os.path.exists(input_csv):
-    print(f"Input file {input_csv} does not exist. Please verify the downloaded dataset.")
+    print(f"Input file {input_csv} does not exist.")
     exit(1)
 
 df = pd.read_csv(input_csv)
-
-if "url" not in df.columns and "URL" not in df.columns:
-    print("No 'url' or 'URL' column found in the dataset. Please check the CSV format.")
-    exit(1)
-    
+# Choose 'url' column; if not present, fallback to 'URL'
 url_col = "url" if "url" in df.columns else "URL"
 
 def extract_domain(url):
@@ -39,4 +35,4 @@ df_external = df[["domain", "threat_score"]].drop_duplicates()
 
 output_csv = os.path.join(base_dir, "external_data", "external_threats.csv")
 df_external.to_csv(output_csv, index=False)
-print(f"✅ External threat intelligence data saved to {output_csv}")
+print(f"External threat intelligence data saved to {output_csv}")

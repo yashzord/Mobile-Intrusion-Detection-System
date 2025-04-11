@@ -1,4 +1,4 @@
-# dashboard.py
+#!/usr/bin/env python3
 import os
 import json
 import datetime
@@ -19,7 +19,7 @@ FEATURES_CSV = os.path.join(BASE_DIR, "secure_traffic_data", "flows_features.csv
 st.set_page_config(page_title="Mobile Intrusion Detection Dashboard", layout="wide")
 
 # ----- Helper Functions -----
-@st.cache
+@st.cache_data
 def load_run_log():
     if os.path.exists(RUN_LOG_PATH):
         with open(RUN_LOG_PATH, "r") as f:
@@ -27,7 +27,7 @@ def load_run_log():
     else:
         return []
 
-@st.cache
+@st.cache_data
 def load_results():
     results_csv = os.path.join(RESULTS_DIR, "flows_with_anomalies.csv")
     suspicious_csv = os.path.join(RESULTS_DIR, "suspicious_flows.csv")
@@ -36,13 +36,11 @@ def load_results():
     return df_results, df_suspicious
 
 def plot_loss_curve():
-    # Load a CSV file with training loss logs if you have it (this is just an example)
-    # In a real scenario, you may dump training history to a CSV during training.
-    # For demonstration, let's create dummy data.
+    # Dummy example data. Replace with your actual training logs if available.
     epochs = np.arange(1, 101)
     loss = np.linspace(0.65, 0.03, 100)  # Dummy decreasing loss
-    val_loss = np.linspace(0.16, 0.02, 100)  # Dummy decreasing val_loss
-    
+    val_loss = np.linspace(0.16, 0.02, 100)  # Dummy decreasing validation loss
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=epochs, y=loss, mode="lines", name="Training Loss"))
     fig.add_trace(go.Scatter(x=epochs, y=val_loss, mode="lines", name="Validation Loss"))
@@ -64,7 +62,7 @@ def plot_anomaly_counts(run_log):
     run_dates = [datetime.datetime.fromisoformat(r["run_datetime"]) for r in run_log]
     pre_counts = [r["pre_whitelist"]["n_anomalies"] for r in run_log]
     post_counts = [r["post_whitelist"]["n_anomalies"] for r in run_log]
-    
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=run_dates, y=pre_counts, mode="lines+markers", name="Pre-Whitelist Anomalies"))
     fig.add_trace(go.Scatter(x=run_dates, y=post_counts, mode="lines+markers", name="Post-Whitelist Anomalies"))
@@ -90,12 +88,10 @@ def plot_unique_urls(run_log):
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_run_summary(run_log):
-    # Show a table of run summary metrics
     df_log = pd.DataFrame(run_log)
     st.dataframe(df_log)
 
 def plot_box_error_by_feature(df_results, feature):
-    # Plot a box plot of the reconstruction error split by a chosen feature
     if feature in df_results.columns:
         fig = px.box(df_results, x=feature, y="reconstruction_error",
                      title=f"Reconstruction Error by {feature}")
@@ -119,7 +115,11 @@ if run_log:
     st.markdown(f"- **Anomaly Threshold:** {latest_run['anomaly_threshold']:.4f}")
     st.markdown(f"- **Anomalies before Whitelist:** {latest_run['pre_whitelist']['n_anomalies']}")
     st.markdown(f"- **Anomalies after Whitelist:** {latest_run['post_whitelist']['n_anomalies']}")
-    st.markdown(f"- **Test Loss:** {latest_run['test_loss']:.4f}")
+    # Only display test_loss if it exists in the run summary
+    if "test_loss" in latest_run:
+        st.markdown(f"- **Test Loss:** {latest_run['test_loss']:.4f}")
+    else:
+        st.markdown(f"- **Test Loss:** N/A")
 else:
     st.write("No run log data available.")
 
@@ -168,7 +168,7 @@ if "log_request_size" in df_results.columns:
 st.header("10. Interactive Table of Suspicious Flows")
 st.dataframe(df_suspicious)
 
-# You can add more interactive components or filters on the sidebar if desired.
+# Sidebar filter for additional box plot by feature
 st.sidebar.header("Dashboard Filters")
 selected_feature = st.sidebar.selectbox("Select feature for box plot", df_results.columns.tolist())
 plot_box_error_by_feature(df_results, selected_feature)

@@ -31,8 +31,8 @@ elif [ "$MODE" == "predict" ]; then
     ARCHIVE_DIR="secure_traffic_data/archive"
     mkdir -p "$ARCHIVE_DIR"
     timestamp=$(date +"%Y%m%d_%H%M%S")
-    cp secure_traffic_data/flows.mitm "$ARCHIVE_DIR/flows_$timestamp.mitm"
-    echo "Archived current flows.mitm as flows_$timestamp.mitm"
+    cp secure_traffic_data/flows_1.mitm "$ARCHIVE_DIR/flows_$timestamp.mitm"
+    echo "Archived current flows_1.mitm as flows_$timestamp.mitm"
     
     echo "Step 1: Processing flows from new capture..."
     python3 process_flows.py "flows_new.csv"

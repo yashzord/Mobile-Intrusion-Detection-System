@@ -64,3 +64,75 @@ This project implements a Mobile Intrusion Detection System that processes netwo
     ```bash
     pip install tensorflow pandas numpy scikit-learn matplotlib plotly streamlit
     ```
+
+## Usage
+
+### Train Mode
+
+Run the training pipeline to process historical data, perform feature engineering, and train the autoencoder model:
+
+```bash
+./run_project.sh train
+```
+
+This command performs the following steps:
+   - Processes the captured network flows.
+   - Archives the previous capture file (i.e., flows.mitm is renamed to flows_1.mitm).
+   - Engineers and scales the features.
+   - Trains the autoencoder model and evaluates it.
+   - Saves the model, scaler, and run summary in the results/ directory (including run_log.json).
+
+### Predict Mode
+
+Before running prediction, the existing flows_1.mitm file is archived (with a timestamp) to preserve previous capture data. Then, new flows are captured and processed:
+
+```bash
+./run_project.sh predict
+```
+
+This command performs the following steps:
+   - Archives the current flows_1.mitm file with a timestamp.
+   - Processes new captured flows and converts them to CSV and JSON formats.
+   - Copies the new CSV file to the expected location and performs feature engineering.
+   - Loads the trained scaler and model.
+   - Runs predictions on the new data and applies whitelist filtering.
+   - Outputs the prediction results and saves them in the results/ directory along with an updated run_log.json.
+
+### Dashboard Mode
+
+To visualize the results and performance metrics, run the dashboard mode using Streamlit:
+
+```bash
+./run_project.sh dashboard
+```
+
+The dashboard displays:
+   - Training and validation loss curves.
+   - Distribution of reconstruction errors with the set threshold.
+   - Anomaly counts over multiple runs.
+   - Comparison of unique URL counts before and after whitelist filtering.
+   - Additional interactive plots and summary tables for further analysis.
+
+## Data Sources and External References
+
+-   **Whitelist Data:**
+    -   [Majestic Million Report](https://majestic.com/reports/majestic-million)
+    -   [Top 1M Domains Dataset (Kaggle)](https://www.kaggle.com/datasets/cheedcheed/top1m)
+
+## Conclusion and Future Work
+
+The Mobile Intrusion Detection System demonstrates effective processing of network flow data from mobile devices and leverages an autoencoder-based approach for anomaly detection. The integration of whitelist filtering significantly reduces false positives; however, the prediction stage revealed challenges—particularly in distinguishing benign Google search-related flows from truly malicious activities. This indicates that further refinement of the anomaly detection logic, especially within the whitelist filtering phase, is required. Future work will focus on improving the filtering algorithms, incorporating additional threat intelligence sources, and expanding the dashboard functionalities for deeper insights.
+
+## References
+
+-   [Majestic Million Report](https://majestic.com/reports/majestic-million)
+-   [Top 1M Domains Dataset (Kaggle)](https://www.kaggle.com/datasets/cheedcheed/top1m)
+-   [MITMProxy](https://mitmproxy.org/)
+-   [TensorFlow](https://www.tensorflow.org/)
+-   [Scikit-Learn](https://scikit-learn.org/)
+-   [Plotly](https://plotly.com/)
+-   [Streamlit](https://streamlit.io/)
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
